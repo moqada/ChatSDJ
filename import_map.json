@@ -1,5 +1,7 @@
 {
   "imports": {
-    "deno-slack-api/": "https://deno.land/x/deno_slack_api@2.1.0/"
+    "deno-slack-api/": "https://deno.land/x/deno_slack_api@2.1.0/",
+    "djwt/": "https://deno.land/x/djwt@v2.8/",
+    "std/": "https://deno.land/std@0.188.0/"
   }
 }

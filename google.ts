@@ -1,5 +1,5 @@
-import { decode as base64Decode } from "https://deno.land/std@0.188.0/encoding/base64.ts";
-import { create } from "https://deno.land/x/djwt@v2.8/mod.ts";
+import { decode as base64Decode } from "std/encoding/base64.ts";
+import { create } from "djwt/mod.ts";
 
 // base64 encoded google-service-account.json
 const GOOGLE_CREDENTIALS = Deno.env.get("GOOGLE_CREDENTIALS");

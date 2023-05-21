@@ -1,6 +1,7 @@
 {
   "importMap": "import_map.json",
   "tasks": {
-    "dev": "netlify dev"
+    "dev": "netlify dev",
+    "encode": "deno run --allow-read encode.ts"
   }
 }
