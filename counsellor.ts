@@ -1,3 +1,4 @@
+import { authenticate, getSpreadSheetValues } from "./google.ts";
 import { ChatCompletionMessage, chatCompletions } from "./openai.ts";
 import { EventContext, SlackAPIClient } from "./slack.ts";
 
@@ -7,8 +8,8 @@ const LOADING_SIGN = Deno.env.get("CHATSDJ_LOADING_SIGN") ||
   "...:writing_hand:";
 const ERROR_MESSAGE = Deno.env.get("CHATSDJ_ERROR_MESSAGE") ||
   "エラーが発生してもうたんや…";
-
-const COUNSELLORS = [{
+const GOOGLE_SPREADSHEET_ID = Deno.env.get("GOOGLE_SPREADSHEET_ID");
+const DEFAULT_COUNSELLOR = {
   name: "板東AI二",
   emoji: "egg",
   prompt: `
@@ -18,33 +19,7 @@ const COUNSELLORS = [{
 大好物はゆで卵でゆで卵について話をしようとしてきます。しゃべりは全て名古屋弁です。
 今後のやりとりは全て板東英二になりきって答えてください。
   `.trim(),
-}, {
-  name: "どんでんAI",
-  emoji: "donden",
-  prompt: `
-あなたは元プロ野球選手で、阪神、オリックスで監督を務めた岡田彰布です。
-きつめの関西弁をしゃべります。口癖は「そらそうよ」「おーん」「はっきり言うて」「やってしまいましたなぁ…」「コレは教育やろなぁ…」「そらもうアレよ」などです。
-主語や述語を省略してしゃべる癖があり、名詞が「アレ」や「ソレ」といった単語に置き換わってしまったり、名詞そのものが省略されることがよくあります。
-そのため少々発言内容が支離滅裂になりがちです。
-今後のやりとりは全て岡田彰布になりきって答えてください。
-    `.trim(),
-}, {
-  // the origin is https://twitter.com/C_0093r/status/1654009804468396034
-  name: "BKB",
-  emoji: "bkb",
-  prompt: `
-以下の指示に従ってください。
-- これから返信は日本語かつ3つの文で行う。
-- 1文目の最初の文字は、ば行
-- 2文目の最初の文字は、か行
-- 3文目の最初の文字は、ば行
-- 3つの文はそれぞれ10字以内
-- 体言止めを多用する
-- 丁寧語は使わない
-- 文章の最後に必ず「BKBヒィア！！！」の文言を添える
-- このスレッド内ではこれ以降ずっとこの指示を守って
-  `.trim(),
-}];
+};
 
 type SlackRepliesMessage = {
   user?: string;
@@ -105,13 +80,36 @@ const getMessages = async (
   ).slice(-20);
 };
 
+const selectCounsellor = async () => {
+  if (!GOOGLE_SPREADSHEET_ID) {
+    return DEFAULT_COUNSELLOR;
+  }
+  const authData = await authenticate();
+  const sheetData = await getSpreadSheetValues({
+    spreadsheetId: GOOGLE_SPREADSHEET_ID,
+    token: authData.access_token,
+  });
+  const rows = sheetData.values;
+  const row = rows[
+    Math.floor(Math.random() * rows.length)
+  ];
+  if (row[0] && row[1] && row[2]) {
+    return {
+      name: row[0],
+      emoji: row[1],
+      prompt: row[2],
+    };
+  }
+  return DEFAULT_COUNSELLOR;
+};
+
 export const talk = async (
   { authUserId, client, event, postMessage, updateMessage }: EventContext,
 ) => {
   console.log("start:", event.ts);
   const messages = await getMessages({ authUserId, client, event });
-  const counsellor =
-    COUNSELLORS[Math.floor(Math.random() * COUNSELLORS.length)];
+  const counsellor = await selectCounsellor();
+  console.log("counsellor", counsellor);
   messages.unshift({ role: "system", content: counsellor.prompt });
 
   const draftMessage = await postMessage(
