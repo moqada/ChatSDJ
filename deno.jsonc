@@ -2,6 +2,7 @@
   "importMap": "import_map.json",
   "tasks": {
     "dev": "netlify dev",
-    "encode": "deno run --allow-read encode.ts"
+    "encode": "deno run --allow-read encode.ts",
+    "test": "deno test --allow-env --allow-net"
   }
 }

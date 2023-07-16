@@ -1,6 +1,6 @@
 import { authenticate, getSpreadSheetValues } from "./google.ts";
-import { ChatCompletionMessage, chatCompletions } from "./openai.ts";
-import { EventContext, SlackAPIClient } from "./slack.ts";
+import { ChatCompletionMessage, OpenAIAPIClient } from "./openai.ts";
+import { SlackAPIClient, SlackEventContext } from "./slack.ts";
 
 const INITIAL_MESSAGE = Deno.env.get("CHATSDJ_INITIAL_MESSAGE") ||
   ".:thought_balloon:";
@@ -9,9 +9,11 @@ const LOADING_SIGN = Deno.env.get("CHATSDJ_LOADING_SIGN") ||
 const ERROR_MESSAGE = Deno.env.get("CHATSDJ_ERROR_MESSAGE") ||
   "エラーが発生してもうたんや…";
 const GOOGLE_SPREADSHEET_ID = Deno.env.get("GOOGLE_SPREADSHEET_ID");
+const DEFAULT_COUNSELLOR_EMOJI =
+  Deno.env.get("CHATSDJ_DEFAULT_COUNSELLOR_EMOJI") || "egg";
 const DEFAULT_COUNSELLOR = {
   name: "板東AI二",
-  emoji: "egg",
+  emoji: DEFAULT_COUNSELLOR_EMOJI,
   prompt: `
 あなたはタレントで、かつて中日で活躍した元プロ野球選手の板東英二です。
 口癖は「いやーほんまにもう」「それはあかんよ!」などです。
@@ -30,9 +32,9 @@ type SlackRepliesMessage = {
 } & Record<string, unknown>;
 
 const getMessages = async (
-  { authUserId, client, event }: {
+  { authUserId, slackAPIClient, event }: {
     authUserId: string;
-    client: SlackAPIClient;
+    slackAPIClient: SlackAPIClient;
     event: Record<string, unknown>;
   },
 ) => {
@@ -42,7 +44,7 @@ const getMessages = async (
       content: event.text as string,
     }];
   }
-  const res = await client.conversations.replies({
+  const res = await slackAPIClient.conversations.replies({
     channel: event.channel,
     ts: event.thread_ts,
   });
@@ -104,45 +106,63 @@ const selectCounsellor = async () => {
 };
 
 export const talk = async (
-  { authUserId, client, event, postMessage, updateMessage }: EventContext,
+  { authUserId, client: slackAPIClient, event }: SlackEventContext,
+  { openAIAPIClient, openAIModel }: {
+    openAIAPIClient: OpenAIAPIClient;
+    openAIModel?: string;
+  },
 ) => {
   console.log("start:", event.ts);
-  const messages = await getMessages({ authUserId, client, event });
+  const messages = await getMessages({ authUserId, slackAPIClient, event });
   const counsellor = await selectCounsellor();
   console.log("counsellor", counsellor);
   messages.unshift({ role: "system", content: counsellor.prompt });
 
-  const draftMessage = await postMessage(
-    INITIAL_MESSAGE,
-    {
-      iconEmoji: counsellor.emoji,
-      username: counsellor.name,
-      threadTs: event.ts,
-      // 始めての返信の場合は、thread_broadcast で返信する (systemプロンプトを含むと閾値が3になる)
-      isReplyBroadcast: messages.length < 3,
-    },
-  );
+  const draftMessage = await slackAPIClient.chat.postMessage({
+    channel: event.channel,
+    text: INITIAL_MESSAGE,
+    icon_emoji: counsellor.emoji,
+    username: counsellor.name,
+    thread_ts: event.ts,
+    // 始めての返信の場合は、thread_broadcast で返信する (systemプロンプトを含むと閾値が3になる)
+    reply_broadcast: messages.length < 3,
+  });
   if (!draftMessage.ok) {
-    await postMessage(ERROR_MESSAGE);
-    console.error(draftMessage.error, event.ts);
+    const res = await slackAPIClient.chat.postMessage({
+      channel: event.channel,
+      text: ERROR_MESSAGE,
+    });
+    if (!res.ok) {
+      console.error(event.ts, "error message posting failed", res.error);
+    }
+    console.error(event.ts, "draft message posting failed", draftMessage.error);
     return;
   }
 
-  const resCompletions = await chatCompletions({
+  const resCompletions = await openAIAPIClient.chatCompletions({
     messages,
+    model: openAIModel,
     onReceiveStreamingMessage: async ({ message, isCompleted }) => {
-      const res = await updateMessage(
-        isCompleted ? message : `${message}${LOADING_SIGN}`,
-        draftMessage,
-      );
+      const res = await slackAPIClient.chat.update({
+        channel: draftMessage.channel,
+        text: isCompleted ? message : `${message}${LOADING_SIGN}`,
+        ts: draftMessage.ts,
+      });
       if (!res.ok) {
-        console.error(res.error, event.ts);
+        console.error(event.ts, "update message posting failed", res.error);
       }
     },
   });
   if (!resCompletions.ok) {
-    await updateMessage(ERROR_MESSAGE, draftMessage);
-    console.error(resCompletions.error, event.ts);
+    const res = await slackAPIClient.chat.update({
+      channel: draftMessage.channel,
+      text: ERROR_MESSAGE,
+      ts: draftMessage.ts,
+    });
+    if (!res.ok) {
+      console.error(event.ts, "error message posting failed", res.error);
+    }
+    console.error(event.ts, "chatCompletions failed", resCompletions.error);
     return;
   }
   console.log("done:", event.ts);
