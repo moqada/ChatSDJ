@@ -102,9 +102,27 @@ Deno.test("talk() - outside of the thread", async () => {
       return { ok: true as const };
     },
   );
+  const stubListModels = stub(openAIAPIClient, "listModels", () => {
+    return Promise.resolve({
+      ok: true as const,
+      data: {
+        data: [{
+          id: "gpt-4",
+          object: "model",
+          created: 1687882411,
+          owned_by: "openai",
+          permission: [],
+          root: "gpt-4",
+          parent: null,
+        }],
+        object: "list" as const,
+      },
+    });
+  });
 
-  await talk(slackEventContext, { openAIAPIClient });
+  await talk(slackEventContext, { openAIAPIClient, openAIModel: "gpt-4" });
 
+  assertSpyCalls(stubListModels, 1);
   assertSpyCalls(stubChatCompletions, 1);
   assertEquals(stubChatCompletions.calls[0].args[0].messages, [{
     content:
@@ -118,7 +136,7 @@ Deno.test("talk() - outside of the thread", async () => {
     content: originalMessage,
     role: "user",
   }]);
-  assertEquals(stubChatCompletions.calls[0].args[0].model, undefined);
+  assertEquals(stubChatCompletions.calls[0].args[0].model, "gpt-4");
 
   assertEquals(chatPostMessageCalls.length, 1);
   assertEquals(chatPostMessageCalls[0], {
@@ -207,9 +225,27 @@ Deno.test("talk() - in the thread", async () => {
       return { ok: true as const };
     },
   );
+  const stubListModels = stub(openAIAPIClient, "listModels", () => {
+    return Promise.resolve({
+      ok: true as const,
+      data: {
+        data: [{
+          id: "gpt-4",
+          object: "model",
+          created: 1687882411,
+          owned_by: "openai",
+          permission: [],
+          root: "gpt-4",
+          parent: null,
+        }],
+        object: "list" as const,
+      },
+    });
+  });
 
-  await talk(slackEventContext, { openAIAPIClient });
+  await talk(slackEventContext, { openAIAPIClient, openAIModel: "gpt-4" });
 
+  assertSpyCalls(stubListModels, 1);
   assertSpyCalls(stubChatCompletions, 1);
   assertEquals(stubChatCompletions.calls[0].args[0].messages, [{
     content:
@@ -229,7 +265,7 @@ Deno.test("talk() - in the thread", async () => {
     content: originalMessage,
     role: "user",
   }]);
-  assertEquals(stubChatCompletions.calls[0].args[0].model, undefined);
+  assertEquals(stubChatCompletions.calls[0].args[0].model, "gpt-4");
 
   assertEquals(chatPostMessageCalls.length, 1);
   assertEquals(chatPostMessageCalls[0], {

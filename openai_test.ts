@@ -118,6 +118,7 @@ Deno.test("chatCompletions", async () => {
       content: "こんにちは、こんにちは",
       role: "user",
     }],
+    model: "gpt-3.5-turbo",
     onReceiveStreamingMessage: spyOnReceiveStreamingMessage,
   });
 

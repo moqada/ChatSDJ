@@ -3,13 +3,46 @@ export type ChatCompletionMessage = {
   content: string;
 };
 
+type ListModelsResponse = {
+  data: Array<{
+    id: string;
+    object: string;
+    owned_by: string;
+    permission: unknown[];
+  }>;
+  object: "list";
+};
+
 export class OpenAIAPIClient {
   constructor(private readonly apiKey: string) {}
 
+  async listModels(): Promise<
+    { ok: true; data: ListModelsResponse } | { ok: false; error: unknown }
+  > {
+    const res = await fetch("https://api.openai.com/v1/models", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      return {
+        ok: false,
+        error: new Error(
+          `OpenAI models failed (${res.status}): ${body}`,
+        ),
+      };
+    }
+    const data = await res.json() as ListModelsResponse;
+    return { ok: true, data };
+  }
+
   async chatCompletions(
-    { messages, model = "gpt-3.5-turbo", onReceiveStreamingMessage }: {
+    { messages, model, onReceiveStreamingMessage }: {
       messages: ChatCompletionMessage[];
-      model?: string;
+      model: string;
       onReceiveStreamingMessage: (
         params: { message: string; isCompleted: boolean },
       ) => void;

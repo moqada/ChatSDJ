@@ -2,6 +2,13 @@ import { authenticate, getSpreadSheetValues } from "./google.ts";
 import { ChatCompletionMessage, OpenAIAPIClient } from "./openai.ts";
 import { SlackAPIClient, SlackEventContext } from "./slack.ts";
 
+type Counsellor = {
+  name: string;
+  emoji: string;
+  prompt: string;
+  model?: string;
+};
+
 const INITIAL_MESSAGE = Deno.env.get("CHATSDJ_INITIAL_MESSAGE") ||
   ".:thought_balloon:";
 const LOADING_SIGN = Deno.env.get("CHATSDJ_LOADING_SIGN") ||
@@ -21,7 +28,8 @@ const DEFAULT_COUNSELLOR = {
 大好物はゆで卵でゆで卵について話をしようとしてきます。しゃべりは全て名古屋弁です。
 今後のやりとりは全て板東英二になりきって答えてください。
   `.trim(),
-};
+} satisfies Counsellor;
+export const DEFAULT_OPENAI_MODEL = "gpt-3.5-turbo";
 
 type SlackRepliesMessage = {
   user?: string;
@@ -82,7 +90,7 @@ const getMessages = async (
   ).slice(-20);
 };
 
-const selectCounsellor = async () => {
+const selectCounsellor = async (): Promise<Counsellor> => {
   if (!GOOGLE_SPREADSHEET_ID) {
     return DEFAULT_COUNSELLOR;
   }
@@ -100,6 +108,7 @@ const selectCounsellor = async () => {
       name: row[0],
       emoji: row[1],
       prompt: row[2],
+      model: row[3],
     };
   }
   return DEFAULT_COUNSELLOR;
@@ -109,7 +118,7 @@ export const talk = async (
   { authUserId, client: slackAPIClient, event }: SlackEventContext,
   { openAIAPIClient, openAIModel }: {
     openAIAPIClient: OpenAIAPIClient;
-    openAIModel?: string;
+    openAIModel: string;
   },
 ) => {
   console.log("start:", event.ts);
@@ -118,7 +127,7 @@ export const talk = async (
   console.log("counsellor", counsellor);
   messages.unshift({ role: "system", content: counsellor.prompt });
 
-  const draftMessage = await slackAPIClient.chat.postMessage({
+  const resDraftMessage = await slackAPIClient.chat.postMessage({
     channel: event.channel,
     text: INITIAL_MESSAGE,
     icon_emoji: counsellor.emoji,
@@ -127,7 +136,7 @@ export const talk = async (
     // 始めての返信の場合は、thread_broadcast で返信する (systemプロンプトを含むと閾値が3になる)
     reply_broadcast: messages.length < 3,
   });
-  if (!draftMessage.ok) {
+  if (!resDraftMessage.ok) {
     const res = await slackAPIClient.chat.postMessage({
       channel: event.channel,
       text: ERROR_MESSAGE,
@@ -135,18 +144,39 @@ export const talk = async (
     if (!res.ok) {
       console.error(event.ts, "error message posting failed", res.error);
     }
-    console.error(event.ts, "draft message posting failed", draftMessage.error);
+    console.error(
+      event.ts,
+      "draft message posting failed",
+      resDraftMessage.error,
+    );
     return;
   }
 
+  const resModels = await openAIAPIClient.listModels();
+  if (!resModels.ok) {
+    const res = await slackAPIClient.chat.update({
+      channel: resDraftMessage.channel,
+      text: ERROR_MESSAGE,
+      ts: resDraftMessage.ts,
+    });
+    if (!res.ok) {
+      console.error(event.ts, "error message posting failed", res.error);
+    }
+    console.error(event.ts, "fetch openai models failed", resModels.error);
+    return;
+  }
+  const model = counsellor.model || openAIModel;
+
   const resCompletions = await openAIAPIClient.chatCompletions({
     messages,
-    model: openAIModel,
+    model: resModels.data.data.some((item) => item.id === model)
+      ? model
+      : DEFAULT_OPENAI_MODEL,
     onReceiveStreamingMessage: async ({ message, isCompleted }) => {
       const res = await slackAPIClient.chat.update({
-        channel: draftMessage.channel,
+        channel: resDraftMessage.channel,
         text: isCompleted ? message : `${message}${LOADING_SIGN}`,
-        ts: draftMessage.ts,
+        ts: resDraftMessage.ts,
       });
       if (!res.ok) {
         console.error(event.ts, "update message posting failed", res.error);
@@ -155,9 +185,9 @@ export const talk = async (
   });
   if (!resCompletions.ok) {
     const res = await slackAPIClient.chat.update({
-      channel: draftMessage.channel,
+      channel: resDraftMessage.channel,
       text: ERROR_MESSAGE,
-      ts: draftMessage.ts,
+      ts: resDraftMessage.ts,
     });
     if (!res.ok) {
       console.error(event.ts, "error message posting failed", res.error);

@@ -61,7 +61,7 @@ export const authenticate = async () => {
 export const getSpreadSheetValues = async (
   { token, spreadsheetId }: { token: string; spreadsheetId: string },
 ) => {
-  const range = "A2:C";
+  const range = "A2:D";
 
   const sheetsResponse = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
