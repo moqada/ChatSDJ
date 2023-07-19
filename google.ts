@@ -1,8 +1,7 @@
 import { decode as base64Decode } from "std/encoding/base64.ts";
 import { create } from "djwt/mod.ts";
+import { GOOGLE_CREDENTIALS } from "./config.ts";
 
-// base64 encoded google-service-account.json
-const GOOGLE_CREDENTIALS = Deno.env.get("GOOGLE_CREDENTIALS");
 const AUTH_ENDPOINT = "https://oauth2.googleapis.com/token";
 const AUTH_SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets.readonly",
@@ -13,7 +12,7 @@ export const authenticate = async () => {
     throw new Error("GOOGLE_CREDENTIALS is not set");
   }
   const credentials = JSON.parse(new TextDecoder().decode(
-    base64Decode(GOOGLE_CREDENTIALS!),
+    base64Decode(GOOGLE_CREDENTIALS),
   ));
 
   // Create the JWT

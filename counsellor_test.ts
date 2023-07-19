@@ -120,7 +120,7 @@ Deno.test("talk() - outside of the thread", async () => {
     });
   });
 
-  await talk(slackEventContext, { openAIAPIClient, openAIModel: "gpt-4" });
+  await talk(slackEventContext, { openAIAPIClient });
 
   assertSpyCalls(stubListModels, 1);
   assertSpyCalls(stubChatCompletions, 1);
@@ -136,7 +136,7 @@ Deno.test("talk() - outside of the thread", async () => {
     content: originalMessage,
     role: "user",
   }]);
-  assertEquals(stubChatCompletions.calls[0].args[0].model, "gpt-4");
+  assertEquals(stubChatCompletions.calls[0].args[0].model, "gpt-3.5-turbo");
 
   assertEquals(chatPostMessageCalls.length, 1);
   assertEquals(chatPostMessageCalls[0], {
@@ -235,7 +235,7 @@ Deno.test("talk() - in the thread", async () => {
           created: 1687882411,
           owned_by: "openai",
           permission: [],
-          root: "gpt-4",
+          root: "gpt-3.5-turbo",
           parent: null,
         }],
         object: "list" as const,
@@ -243,7 +243,7 @@ Deno.test("talk() - in the thread", async () => {
     });
   });
 
-  await talk(slackEventContext, { openAIAPIClient, openAIModel: "gpt-4" });
+  await talk(slackEventContext, { openAIAPIClient });
 
   assertSpyCalls(stubListModels, 1);
   assertSpyCalls(stubChatCompletions, 1);
@@ -265,7 +265,7 @@ Deno.test("talk() - in the thread", async () => {
     content: originalMessage,
     role: "user",
   }]);
-  assertEquals(stubChatCompletions.calls[0].args[0].model, "gpt-4");
+  assertEquals(stubChatCompletions.calls[0].args[0].model, "gpt-3.5-turbo");
 
   assertEquals(chatPostMessageCalls.length, 1);
   assertEquals(chatPostMessageCalls[0], {

@@ -1,11 +1,11 @@
-import { DEFAULT_OPENAI_MODEL, talk } from "../../counsellor.ts";
+import {
+  OPENAI_API_KEY,
+  SLACK_API_TOKEN,
+  SLACK_SIGNING_SECRET,
+} from "../../config.ts";
+import { talk } from "../../counsellor.ts";
 import { OpenAIAPIClient } from "../../openai.ts";
 import { createSlackEventContext, verifyRequest } from "../../slack.ts";
-
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") || DEFAULT_OPENAI_MODEL;
-const SLACK_API_TOKEN = Deno.env.get("SLACK_API_TOKEN");
-const SLACK_SIGNING_SECRET = Deno.env.get("SLACK_SIGNING_SECRET");
 
 export default async (req: Request) => {
   if (!OPENAI_API_KEY) {
@@ -37,7 +37,7 @@ export default async (req: Request) => {
           apiToken: SLACK_API_TOKEN,
           payload: body,
         });
-        talk(slackEventCtx, { openAIAPIClient, openAIModel: OPENAI_MODEL });
+        talk(slackEventCtx, { openAIAPIClient });
         return new Response();
       }
       console.log("unsupported event type", body.event.type);

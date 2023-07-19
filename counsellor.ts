@@ -1,6 +1,14 @@
 import { authenticate, getSpreadSheetValues } from "./google.ts";
 import { ChatCompletionMessage, OpenAIAPIClient } from "./openai.ts";
 import { SlackAPIClient, SlackEventContext } from "./slack.ts";
+import {
+  DEFAULT_COUNSELLOR_EMOJI,
+  ERROR_MESSAGE,
+  GOOGLE_SPREADSHEET_ID,
+  INITIAL_MESSAGE,
+  LOADING_SIGN,
+  OPENAI_DEFAULT_MODEL,
+} from "./config.ts";
 
 type Counsellor = {
   name: string;
@@ -9,15 +17,6 @@ type Counsellor = {
   model?: string;
 };
 
-const INITIAL_MESSAGE = Deno.env.get("CHATSDJ_INITIAL_MESSAGE") ||
-  ".:thought_balloon:";
-const LOADING_SIGN = Deno.env.get("CHATSDJ_LOADING_SIGN") ||
-  "...:writing_hand:";
-const ERROR_MESSAGE = Deno.env.get("CHATSDJ_ERROR_MESSAGE") ||
-  "エラーが発生してもうたんや…";
-const GOOGLE_SPREADSHEET_ID = Deno.env.get("GOOGLE_SPREADSHEET_ID");
-const DEFAULT_COUNSELLOR_EMOJI =
-  Deno.env.get("CHATSDJ_DEFAULT_COUNSELLOR_EMOJI") || "egg";
 const DEFAULT_COUNSELLOR = {
   name: "板東AI二",
   emoji: DEFAULT_COUNSELLOR_EMOJI,
@@ -29,7 +28,6 @@ const DEFAULT_COUNSELLOR = {
 今後のやりとりは全て板東英二になりきって答えてください。
   `.trim(),
 } satisfies Counsellor;
-export const DEFAULT_OPENAI_MODEL = "gpt-3.5-turbo";
 
 type SlackRepliesMessage = {
   user?: string;
@@ -116,9 +114,8 @@ const selectCounsellor = async (): Promise<Counsellor> => {
 
 export const talk = async (
   { authUserId, client: slackAPIClient, event }: SlackEventContext,
-  { openAIAPIClient, openAIModel }: {
+  { openAIAPIClient }: {
     openAIAPIClient: OpenAIAPIClient;
-    openAIModel: string;
   },
 ) => {
   console.log("start:", event.ts);
@@ -165,13 +162,13 @@ export const talk = async (
     console.error(event.ts, "fetch openai models failed", resModels.error);
     return;
   }
-  const model = counsellor.model || openAIModel;
+  const model = counsellor.model || OPENAI_DEFAULT_MODEL;
 
   const resCompletions = await openAIAPIClient.chatCompletions({
     messages,
     model: resModels.data.data.some((item) => item.id === model)
       ? model
-      : DEFAULT_OPENAI_MODEL,
+      : OPENAI_DEFAULT_MODEL,
     onReceiveStreamingMessage: async ({ message, isCompleted }) => {
       const res = await slackAPIClient.chat.update({
         channel: resDraftMessage.channel,
