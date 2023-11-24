@@ -125,5 +125,6 @@ Slack Workspace の任意のチャンネルに招待してメンションする�
 
 - `CHATSDJ_DEFAULT_COUNSELLOR_EMOJI`: デフォルト相談員 (板東AI二) のアイコン絵文字を指定します
 - `CHATSDJ_ERROR_MESSAGE`: エラーが発生した場合に返信するメッセージを指定します
+- `CHATSDJ_IMAGE_GENERATION_LOADING_MESSAGE`: 画像生成中に返信するメッセージを指定します
 - `CHATSDJ_INITIAL_MESSAGE`: 質問の受付直後に返信するメッセージを指定します
 - `CHATSDJ_LOADING_SIGN`: 回答途中のメッセージの末尾に表示する処理中マークを指定します
