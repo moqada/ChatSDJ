@@ -16,7 +16,8 @@
         "app_mentions:read",
         "chat:write",
         "chat:write.customize",
-        "channels:history"
+        "channels:history",
+        "files:write"
       ]
     }
   },

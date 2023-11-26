@@ -15,6 +15,9 @@ export const LOADING_SIGN = Deno.env.get("CHATSDJ_LOADING_SIGN") ||
   "...:writing_hand:";
 export const ERROR_MESSAGE = Deno.env.get("CHATSDJ_ERROR_MESSAGE") ||
   "エラーが発生してもうたんや…";
+export const IMAGE_GENERATION_LOADING_MESSAGE =
+  Deno.env.get("CHATSDJ_IMAGE_GENERATION_LOADING_MESSAGE") ||
+  "画像生成中...:art:";
 export const DEFAULT_COUNSELLOR_EMOJI = Deno.env.get(
   "CHATSDJ_DEFAULT_COUNSELLOR_EMOJI",
 ) || "egg";
